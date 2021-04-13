@@ -10,6 +10,7 @@ T=20;       %Number of data points used for testing
 M=1000;     %Number of iterations for optimization algorithm
 alpha=0.007;%Step size for optimization algorithm
 N_feature=4;%Number of features
+nbins=20;   %Number of bins in histogram
 
 %% Load data and construct problem vectors
 %Task 1a
@@ -109,17 +110,17 @@ end
 figure
 for n=1:N_feature
     subplot(N_feature, C, C*(n-1)+1)
-    histogram(x1all(:,n),10)
+    histogram(x1all(:,n),nbins)
     xlabel('Class 1')
     ylabel(['Feature ' num2str(n)]);
     
     subplot(N_feature, C, C*(n-1)+2)
-    histogram(x2all(:,n),10)
+    histogram(x2all(:,n),nbins)
     xlabel('Class 2')
     ylabel(['Feature ' num2str(n)]);
     
     subplot(N_feature, C, C*(n-1)+3)
-    histogram(x3all(:,n),10)
+    histogram(x3all(:,n),nbins)
     xlabel('Class 3')
     ylabel(['Feature ' num2str(n)]);
 end
