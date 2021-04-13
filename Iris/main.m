@@ -7,8 +7,8 @@ C=3;        %Number of classes
 N=50;       %Number of data points for each class
 D=30;       %Number of data points used for training
 T=20;       %Number of data points used for testing
-M=1000;      %Number of iterations for optimization algorithm
-alpha=0.007; %Step size for optimization algorithm
+M=1000;     %Number of iterations for optimization algorithm
+alpha=0.007;%Step size for optimization algorithm
 N_feature=4;%Number of features
 
 %% Load data and construct problem vectors
@@ -19,29 +19,29 @@ x3all = load('class_3','-ascii');
 
 switch N_feature
     case 1
-        x_training=[x1all(1:D,4);...
-                    x2all(1:D,4);...
-                    x3all(1:D,4)];
+        x_training=[x1all(1:D,1);...
+                    x2all(1:D,1);...
+                    x3all(1:D,1)];
         
-        x_test=    [x1all(D+1:N,4);...
-                    x2all(D+1:N,4);...
-                    x3all(D+1:N,4)];
+        x_test=    [x1all(D+1:N,1);...
+                    x2all(D+1:N,1);...
+                    x3all(D+1:N,1)];
     case 2
-        x_training=[x1all(1:D,3) x1all(1:D,4);...
-                    x2all(1:D,3) x2all(1:D,4);...
-                    x3all(1:D,3) x3all(1:D,4)];
+        x_training=[x1all(1:D,1) x1all(1:D,2);...
+                    x2all(1:D,1) x2all(1:D,2);...
+                    x3all(1:D,1) x3all(1:D,2)];
         
-        x_test=    [x1all(D+1:N,3) x1all(D+1:N,4);...
-                    x2all(D+1:N,3) x2all(D+1:N,4);...
-                    x3all(D+1:N,3) x3all(D+1:N,4)];
+        x_test=    [x1all(D+1:N,1) x1all(D+1:N,2);...
+                    x2all(D+1:N,1) x2all(D+1:N,2);...
+                    x3all(D+1:N,1) x3all(D+1:N,2)];
     case 3
-       x_training=  [x1all(1:D,4) x1all(1:D,1) x1all(1:D,2);...
-                    x2all(1:D,4) x2all(1:D,1) x2all(1:D,2);...
-                    x3all(1:D,4) x3all(1:D,1) x3all(1:D,2)];
+       x_training=  [x1all(1:D,1) x1all(1:D,2) x1all(1:D,3);...
+                     x2all(1:D,1) x2all(1:D,2) x2all(1:D,3);...
+                     x3all(1:D,1) x3all(1:D,2) x3all(1:D,3)];
         
-        x_test=    [x1all(D+1:N,4) x1all(D+1:N,1) x1all(D+1:N,2);...
-                    x2all(D+1:N,4) x2all(D+1:N,1) x2all(D+1:N,2);...
-                    x3all(D+1:N,4) x3all(D+1:N,1) x3all(D+1:N,2)];
+        x_test=    [x1all(D+1:N,1) x1all(D+1:N,2) x1all(D+1:N,3);...
+                    x2all(D+1:N,1) x2all(D+1:N,2) x2all(D+1:N,3);...
+                    x3all(D+1:N,1) x3all(D+1:N,2) x3all(D+1:N,3)];
     case 4
         x_training=[x1all(1:D,1) x1all(1:D,2) x1all(1:D,3) x1all(1:D,4);...
                     x2all(1:D,1) x2all(1:D,2) x2all(1:D,3) x2all(1:D,4);...
@@ -78,7 +78,7 @@ for m=1:100             %For all optimization iterations
 end
 
 
-%% Processing
+%% Processing and evaluation
 %Problem 1.1.c
 %Finding the confusion matrix of the above training
 
@@ -104,15 +104,35 @@ for i=1:C
     end
 end
 
+%% Histograms
+%Problem 1.2.a
+figure
+for n=1:N_feature
+    subplot(N_feature, C, C*(n-1)+1)
+    histogram(x1all(:,n),10)
+    xlabel('Class 1')
+    ylabel(['Feature ' num2str(n)]);
+    
+    subplot(N_feature, C, C*(n-1)+2)
+    histogram(x2all(:,n),10)
+    xlabel('Class 2')
+    ylabel(['Feature ' num2str(n)]);
+    
+    subplot(N_feature, C, C*(n-1)+3)
+    histogram(x3all(:,n),10)
+    xlabel('Class 3')
+    ylabel(['Feature ' num2str(n)]);
+end
+
 
 %% Plotting
-scatter3(x1all(:,1), x1all(:,2), x1all(:,3), 'r');
-hold on
-scatter3(x2all(:,1), x2all(:,2), x2all(:,3), 'b');
-hold on
-scatter3(x3all(:,1), x3all(:,2), x3all(:,3), 'g');
-
-xlabel('Sepal length');
-ylabel('Sepal width');
-zlabel('Petal length');
+% scatter3(x1all(:,1), x1all(:,2), x1all(:,3), 'r');
+% hold on
+% scatter3(x2all(:,1), x2all(:,2), x2all(:,3), 'b');
+% hold on
+% scatter3(x3all(:,1), x3all(:,2), x3all(:,3), 'g');
+% 
+% xlabel('Sepal length');
+% ylabel('Sepal width');
+% zlabel('Petal length');
 
