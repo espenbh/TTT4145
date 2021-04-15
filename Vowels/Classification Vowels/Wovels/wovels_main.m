@@ -30,18 +30,58 @@ frequencies=[F0s,F1s,F2s,F3s,F4s,F120,F220,F320,F150,F250,F350,F180,F280,F380];
 frequency_names=['F0s ';'F1s ';'F2s ';'F3s ';'F4s ';'F120';'F220';'F320';'F150';'F250';'F350';'F180';'F280';'F380'];
 Nfreq=size(frequencies, 2);
 nbins=20;
-C1=length(talker_group);
+N_tg=length(talker_group);
+N_w=length(vowel);
 
 
-%% Histogram
-
+%% Histogram over frequencies
 figure(1)
 for nfreq=1:Nfreq
-    for c1=1:C1
-        subplot(Nfreq,C1,C1*(nfreq-1)+c1);
+    for n_tg=1:N_tg
+        subplot(Nfreq,N_tg,N_tg*(nfreq-1)+n_tg);
         current_frequency=frequencies(:,nfreq);
-        hist(current_frequency(find(talker_group_code==c1)),nbins);
-        xlabel(talker_group(c1));
+        hist(current_frequency(find(talker_group_code==n_tg)),nbins);
+        xlabel(talker_group(n_tg));
         ylabel(frequency_names(nfreq, :));
     end
 end
+
+%% Calculate mean over frequencies
+%Pattern: Men has the deepest (lowest frequency) voice.
+%Then comes women, then comes boys, then comes girls.
+for nfreq=1:Nfreq
+    for n_tg=1:N_tg
+        current_frequency=frequencies(:,nfreq);
+        x = current_frequency(find(talker_group_code==n_tg));
+        mx = mean(x);
+        disp(['Mean ', frequency_names(nfreq, :), ' for ', talker_group(n_tg), ' : ',num2str(mx)]);
+    end
+end
+
+%% Remove outliers F0
+% Working on copy => non destructive
+x = F0s(find(talker_group_code==1));
+mx = mean(x);
+disp('Mean F0 for males:')
+disp(mx);
+
+sd2         = std(x) * 2;
+ind_higher  = find(x > mx+sd2);
+ind_lower   = find(x < mx - sd2);
+ind         = intersect(ind_higher, ind_lower);
+x(ind)      = [];
+mx          = mean(x);
+disp('Mean F0 for males (outliers removed): ')
+disp(mx);
+
+%% find mean and covariance for vowels
+means=zeros(1,Nw);
+for nfreq=1:Nfreq
+    for nw=1:Nw
+        x = F0s(find(vowel_code==nw));
+        mx = mean(x);
+        means(nw)=means(nw)+mx;
+    end
+end
+means=means./Nfreq;
+
