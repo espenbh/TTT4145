@@ -322,6 +322,4 @@ fimplicit3(gmPDF,[-10000 10000 -10000 10000 -10000 10000])
 % disp('Mean F0 for males (outliers removed): ')
 % disp(mx);
 
-function [processed_data] = improver_find(feature_array, key_array, key, ) 
- processed_data = feature_array(find(key_array==key),1:N_features)
-end
+function [] = improver() 
