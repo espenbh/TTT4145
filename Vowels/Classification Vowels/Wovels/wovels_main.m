@@ -13,7 +13,7 @@
 
 %% Clear
 clc
-%clear all
+clear all
 close all
 
 %% Import data
@@ -48,7 +48,7 @@ N_bins=20;              % Bins for histograms
 N_talkers=139;          % Number of talkers
 N_vowels=length(vowel); % Number of wovels
 
-feature_mode=50;        % Decide data registration mode
+feature_mode=100;        % Decide data registration mode
 N_features= 3;          % Number of features used for classification
 
 N_training= 70;         % Number of data points per class used for training
@@ -85,51 +85,51 @@ end
 % completely.
 
 % Remove corrupted data (data with zeros)
-data_indeks=1;
-while true
-    sum(features(data_indeks, :)==0);
-    if sum(features(data_indeks, :)==0)~=0
-        features(data_indeks,:);
-        features(data_indeks,:) = [];
-        vowel_code(data_indeks) = [];
-        continue
-    end
-    if size(features,1) > data_indeks
-        data_indeks=data_indeks+1;
-    else
-        break
-    end
-end
+% data_indeks=1;
+% while true
+%     sum(features(data_indeks, :)==0);
+%     if sum(features(data_indeks, :)==0)~=0
+%         features(data_indeks,:);
+%         features(data_indeks,:) = [];
+%         vowel_code(data_indeks) = [];
+%         continue
+%     end
+%     if size(features,1) > data_indeks
+%         data_indeks=data_indeks+1;
+%     else
+%         break
+%     end
+% end
 
 
 % Remove outliers in dataset (NB: This will disturb the testset, and lead to
 % results that are seemingly better performing than they actually are)
-for n_vowels=1:N_vowels
-    main_set_indeks=find(vowel_code==n_vowels);
-    current_data=features(main_set_indeks,:);
-    temp_mean=mean(current_data);
-    max_dev=std(current_data)*2;
-    
-    ind_delete=[];
-    for current_set_indeks=1:size(current_data,1)
-        for n_features=1:N_features
-            if features(main_set_indeks(current_set_indeks), n_features)>temp_mean(1,n_features)+max_dev(1,n_features)
-                ind_delete=union(ind_delete, main_set_indeks(current_set_indeks));
-            elseif features(main_set_indeks(current_set_indeks), n_features)<temp_mean(1,n_features)-max_dev(1,n_features)
-                ind_delete=union(ind_delete, main_set_indeks(current_set_indeks));
-            end
-        end
-    end
-    features(ind_delete,:)=[];
-    vowel_code(ind_delete)=[];
-end
+% for n_vowels=1:N_vowels
+%     main_set_indeks=find(vowel_code==n_vowels);
+%     current_data=features(main_set_indeks,:);
+%     temp_mean=mean(current_data);
+%     max_dev=std(current_data)*2;
+%     
+%     ind_delete=[];
+%     for current_set_indeks=1:size(current_data,1)
+%         for n_features=1:N_features
+%             if features(main_set_indeks(current_set_indeks), n_features)>temp_mean(1,n_features)+max_dev(1,n_features)
+%                 ind_delete=union(ind_delete, main_set_indeks(current_set_indeks));
+%             elseif features(main_set_indeks(current_set_indeks), n_features)<temp_mean(1,n_features)-max_dev(1,n_features)
+%                 ind_delete=union(ind_delete, main_set_indeks(current_set_indeks));
+%             end
+%         end
+%     end
+%     features(ind_delete,:)=[];
+%     vowel_code(ind_delete)=[];
+% end
 
 % Update size of dataset
 N=size(features,1);
 
 % Shuffle datapoints, to avoid training on men/women, and testing on
 % boys/girls
-%new_index=randperm(N);
+new_index=randperm(N);
 features=features(new_index,:);
 vowel_code=vowel_code(new_index);
 
@@ -145,7 +145,7 @@ fill_cursor_test=0;
 for n_vowels=1:N_vowels
     main_set_index=find(vowel_code==n_vowels);
     size_vowel_set=size(main_set_index,2);
-    size_test_set=size_vowel_set-70;
+    size_test_set=size_vowel_set-N_training;
     
     training_features((n_vowels-1)*N_training+1:        ...
     n_vowels*N_training, :) =                           ...
@@ -219,10 +219,16 @@ for n_vowels=1:N_vowels
 end
 
 %% Calculating GMM with fitgmdist (training)
+options = statset('MaxIter',1000,'TolFun',1e-6);
 GMMs=cell(N_vowels, 1);
 for n_vowels=1:N_vowels
     current_data = training_features(find(training_vowel_code==n_vowels),:);
-    GMMs{n_vowels}=fitgmdist(current_data, 3, 'RegularizationValue', 0.000001);
+    GMMs{n_vowels}=fitgmdist(   current_data, 1,                ...
+                                'RegularizationValue',0.0001,   ...
+                                'Options',options,              ...
+                                'CovarianceType','full',        ...
+                                'ProbabilityTolerance',1e-8,    ...
+                                'Replicates',10);
 end
 
 %% Finding confusion matrix by evaluating full Gaussian equations (testing)
