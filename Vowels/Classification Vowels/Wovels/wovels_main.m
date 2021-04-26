@@ -14,6 +14,7 @@
 %% Clear
 clc
 clear all
+close all
 
 %% Import data
 % Read vowdata_nohead.dat into [files, dur, F0s...] 
@@ -25,8 +26,8 @@ textread('vowdata_nohead.dat',                                                  
 '%s%4.1f%4.1f%4.1f%4.1f%4.1f%4.1f%4.1f%4.1f%4.1f%4.1f%4.1f%4.1f%4.1f%4.1f%4.1f');
 
 %Forms character arrays to order the data
-vowel = str2mat('ae','ah','aw','eh','er','ei','ih','iy','oa','oo','uh','uw');
-vowel_names = ['ae';'ah';'aw';'eh';'er';'ei';'ih';'iy';'oa';'oo';'uh';'uw'];
+vowel = str2mat('ae','ah','aw','eh','ei','er','ih','iy','oa','oo','uh','uw');
+vowel_names = ['ae';'ah';'aw';'eh';'ei';'er';'ih';'iy';'oa';'oo';'uh';'uw'];
 talker_group = str2mat('m','w','b','g');
 
 filenames=char(files);          % convert cell array to character matrix
@@ -47,11 +48,13 @@ N_bins=20;              % Bins for histograms
 N_talkers=139;          % Number of talkers
 N_vowels=length(vowel); % Number of wovels
 
-feature_mode=50;       % Decide data registration mode
-N_features= 3;          % Number of features used for classification
+feature_mode=100;       % Decide data registration mode
+N_features= 4;          % Number of features used for classification
 
 N_training= 70;         % Number of data points per class used for training
 N_test=     N_talkers-N_training;   % Number of data points per class used for testing
+
+N = N_talkers*N_vowels; % Total number of data points
 
 %% Choose features
 %Extract features based on feature mode
@@ -70,70 +73,67 @@ switch feature_mode
         features=       [F180 F280 F380];
         feature_names=  ['F180';'F280';'F380'];
     case 100    
-        features=       [F1s F2s F3s];
+        features=       [F0s F1s F2s F3s];
         feature_names=  ['F1s';'F2s';'F3s'];
 end
 
-% new_indexes=randperm(N_vowels*N_talkers);
-% new_features=zeros(N_vowels*N_talkers, N_features);
-% new_vowel_code=zeros(N_vowels*N_talkers, 1);
-% for old_index=1:N_vowels*N_talkers
-%     new_features(old_index, :)=features(new_indexes(old_index), :);
-%     new_vowel_code(old_index, 1)=vowel_code(new_indexes(old_index));
-% end
-% new_features = features(randperm(40),:);
-% features=new_features;
-% vowel_code=new_vowel_code;
-
-% Spliting the data matrix extracted above in
-% a training matrix and a testing matrix.
-training_features=zeros(N_training, N_features);
-for n_vowels=1:N_vowels
-    training_features((n_vowels-1)*N_training+1:    ...
-    (n_vowels-1)*N_training+N_training, :) =        ...
-    features((n_vowels-1)*N_talkers+1:              ...
-    (n_vowels-1)*N_talkers + N_training, :);
-end
-
-test_features=zeros(N_test, N_features+1);
-for n_vowels=1:N_vowels
-    test_features((n_vowels-1)*N_test+1:                ...
-    (n_vowels-1)*N_test+N_test, 1:N_features) =         ...
-    features((n_vowels-1)*N_talkers+N_training + 1:     ...
-    n_vowels*N_talkers, 1:N_features);
-
-    test_features((n_vowels-1)*N_test+1:                ...
-    N_test*n_vowels,                                    ...
-    N_features+1)=                                      ...
-    ones(N_test,1)*n_vowels;
-end
-
-%% Separate training and test data
-% Make individual character matrices for training
-
-for n_vowels=1:N_vowels
-    for n_training=1:N_training
-        index_from=(n_vowels-1)*N_talkers+n_training;
-        index_to=(n_vowels-1)*N_training+n_training
-        training_vowel_code(index_to) = strmatch(filenames(index_from,4:5),vowel); 
-%         training_vowel_code(indeks_to) = strmatch(filenames(indeks_from,4:5),vowel);               
-%         training_talker_group_code(indeks_to) = strmatch(filenames(indeks_from,1),talker_group);   
-%         training_talker_number(indeks_to) = str2num(filenames(indeks_from,2:3));                   
+%Remove corrupted data
+%Taken out of test set
+data_indeks=1;
+while true
+    sum(features(data_indeks, :)==0)
+    if sum(features(data_indeks, :)==0)~=0
+        features(data_indeks,:)
+        features(data_indeks,:) = [];
+        vowel_code(data_indeks) = [];
+        continue
+    end
+    if size(features,1) > data_indeks
+        data_indeks=data_indeks+1;
+    else
+        break
     end
 end
+N=size(features,1);
 
-% Make individual character matrices for testing (not in use, mentioned in code for
-% completion)
+% Shuffle datapoints, to avoid training on men/women, and testing on
+% boys/girls
+new_index=randperm(N);
+features=features(new_index,:);
+vowel_code=vowel_code(new_index);
 
-% for n_test=1:N_test
-%     for n_vowels=1:N_vowels
-%         indeks_from=(n_vowels-1)*N_talkers+n_test;
-%         indeks_to=(n_vowels-1)*N_test+n_test;
-%         test_vowel_code(indeks_to) = strmatch(filenames(indeks_from,4:5),vowel);               
-%         test_talker_group_code(indeks_to) = strmatch(filenames(indeks_from,1),talker_group);   
-%         test_talker_number(indeks_to) = str2num(filenames(indeks_from,2:3));                   
-%     end
-% end
+
+%% Separate training and test data
+
+% Split data-array in two, one for testing, one for training
+% Also make vowel code arrays to extract the right vowels
+
+training_features=zeros(N_training, N_features);
+training_vowel_code=zeros(1,N_training);
+fill_cursor_test=0;
+for n_vowels=1:N_vowels
+    index_list=find(vowel_code==n_vowels);
+    size_vowel_set=size(index_list,2);
+    size_test_set=size_vowel_set-70;
+    
+    training_features((n_vowels-1)*N_training+1:        ...
+    n_vowels*N_training, :) =                           ...
+    features(index_list(1:N_training),:);
+
+    test_features(fill_cursor_test+1:                ...
+    fill_cursor_test+size_test_set, :) =             ...
+    features(index_list(N_training+1:size_vowel_set),:);
+
+    training_vowel_code(1,(n_vowels-1)*N_training+1:    ...
+    n_vowels*N_training)=                               ...
+    ones(1,N_training)*n_vowels;
+
+    test_vowel_code(1, fill_cursor_test+1:              ...
+    fill_cursor_test+size_test_set) =                ...
+    ones(1,size_test_set)*n_vowels;
+    
+    fill_cursor_test=fill_cursor_test+size_vowel_set-70;
+end
 
 %% Histogram
 % Displaying all classes and features, using all data points
@@ -155,18 +155,20 @@ end
 means=zeros(N_vowels, N_features);
 covariances=zeros(N_vowels, N_features, N_features);
 
+
 for n_features=1:N_features
     for n_vowels=1:N_vowels
-        current_feature=training_features(:,n_features);
-        x = current_feature(find(training_vowel_code==n_vowels));
-        means(n_vowels, n_features) = mean(x);
+        current_vowel_indeks=find(training_vowel_code==n_vowels);
+        current_data=training_features(current_vowel_indeks,n_features);
+        means(n_vowels, n_features) = mean(current_data);
 %       disp(['Mean ', feature_names(n_features, :), ' for ', vowel_names(nw, :), ' : ',num2str(means(nw, n_features))]);
     end
 end
 
 for n_vowels=1:N_vowels
-    x = training_features((n_vowels-1)*N_training+1:n_vowels*N_training, :);
-    covariances(n_vowels, :, :) = cov(x);
+    current_vowel_indeks=find(training_vowel_code==n_vowels);
+    current_data=training_features(current_vowel_indeks, :);
+    covariances(n_vowels, :, :) = cov(current_data);
 %    covariances(n_vowels, :, :) = cov(x)-0.01*cov(x);      % If regularization is needed
 %    disp(['Covariance for ', vowel_names(n_vowels, :)])    % Displaying covariance
 %    disp(cov(x)-0.01*cov(x))
@@ -185,12 +187,12 @@ for n_vowels=1:N_vowels
 end
 
 %% Calculating GMM with fitgmdist (training)
-
 GMMs=cell(N_vowels, 1);
 for n_vowels=1:N_vowels
-    current_data_1 = training_features((n_vowels-1)*N_training+1:n_vowels*N_training, 1:N_features)
-    current_data_2 = training_features(find(training_vowel_code==n_vowels),1:N_features)
-    GMMs{n_vowels}=fitgmdist(current_data_2, 3, 'RegularizationValue', 0.01, 'CovarianceType','diagonal');
+    current_data_1 = training_features((n_vowels-1)*N_training+1:n_vowels*N_training, 1:N_features);
+    %current_data_2 = training_features(find(training_vowel_code==n_vowels),1:N_features)
+    current_data_2 = training_features(find(training_vowel_code==n_vowels),:);
+    GMMs{n_vowels}=fitgmdist(current_data_2, 3, 'RegularizationValue', 0.00001);
 end
 
 %% Finding confusion matrix by evaluating full Gaussian equations (testing)
@@ -211,35 +213,38 @@ end
 %% Finding confusion matrix by mvnpdf evaluation from mean and covariance at each datapoint (testing)
 % confuse_matrix=zeros(N_vowels, N_vowels);
 % for n_vowels_outer=1:N_vowels
-%     for n_test=1:N_test
-%         current_data=test_features((n_vowels_outer-1)*N_test+n_test, 1:N_features);
-%         actual_class=test_features((n_vowels_outer-1)*N_test+n_test, N_features+1);
+%     current_vowel_indeks=find(test_vowel_code==n_vowels_outer);
+%     size_test_set=size(current_vowel_indeks, 2);
+%     for i = 1:size_test_set
+%         current_indeks=current_vowel_indeks(i);
+%         current_data=test_features(current_indeks,:);
 %         current_all_probs=zeros(1, N_vowels);
 %         for n_vowels_inner=1:N_vowels
-%             sigma=reshape(covariances(n_vowels_inner,:,:), [3,3]);
+%             sigma=reshape(covariances(n_vowels_inner,:,:), [N_features,N_features]);
 %             mu=means(n_vowels_inner, :);
 %             current_all_probs(1,n_vowels_inner)=mvnpdf(current_data, mu, sigma);
 %         end
 %         [~, current_best_class_fit]=max(current_all_probs);
-%         confuse_matrix(current_best_class_fit, actual_class)=...
-%         confuse_matrix(current_best_class_fit, actual_class)+1;
+%         confuse_matrix(current_best_class_fit, n_vowels_outer)=...
+%         confuse_matrix(current_best_class_fit, n_vowels_outer)+1;
 %     end
 % end
-
 
 %% Finding confusion matrix by evaluating gmdistribution objects
 confuse_matrix=zeros(N_vowels, N_vowels);
 for n_vowels_outer=1:N_vowels
-    for n_test=1:N_test
-        current_data=test_features((n_vowels_outer-1)*N_test+n_test, 1:N_features);
-        actual_class=test_features((n_vowels_outer-1)*N_test+n_test, N_features+1);
-        current_all_probs=zeros(1,12);
-        for n_vowels_inner=1:N_vowels     
+    current_vowel_indeks=find(test_vowel_code==n_vowels_outer);
+    size_test_set=size(current_vowel_indeks, 2);
+    for i = 1:size_test_set
+        current_indeks=current_vowel_indeks(i);
+        current_data=test_features(current_indeks,:);
+        current_all_probs=zeros(1, N_vowels);
+        for n_vowels_inner=1:N_vowels
             current_all_probs(1,n_vowels_inner)=pdf(GMMs{n_vowels_inner}, current_data);
         end
         [~, current_best_class_fit]=max(current_all_probs);
-        confuse_matrix(current_best_class_fit, actual_class)=...
-        confuse_matrix(current_best_class_fit, actual_class)+1;
+        confuse_matrix(current_best_class_fit, n_vowels_outer)=...
+        confuse_matrix(current_best_class_fit, n_vowels_outer)+1;
     end
 end
 
@@ -270,7 +275,8 @@ figure(2)
 
 %3D scatter with 3 features, class 1 and mean for class 1
 subplot(2,2,1)
-    scatter3(features(1:N_talkers,1), features(1:N_talkers,2), features(1:N_talkers, 3))
+    vowel_1_indeks=find(vowel_code==1);
+    scatter3(features(vowel_1_indeks,1), features(vowel_1_indeks,2), features(vowel_1_indeks, 3))
     hold on
     scatter3(means(1,1), means(1,2), means(1,3))
     
@@ -300,10 +306,10 @@ subplot(2,2,1)
 % zlabel('F3s')
 
 subplot(2,2,2)
-x0=1;
-y0=1;
-z0=1;
-gmPDF = @(x,y, z) arrayfun(@(x0,y0, z0) pdf(GMMs{1},[x0 y0, z0]),x,y, z);
+x0=0;
+y0=0;
+z0=0;
+gmPDF = @(x,y,z) arrayfun(@(x0,y0,z0) pdf(GMMs{1},[x0 y0,z0]),x,y, z);
 fimplicit3(gmPDF,[-10000 10000 -10000 10000 -10000 10000])
 
 %% Remove outliers F0
@@ -322,6 +328,16 @@ fimplicit3(gmPDF,[-10000 10000 -10000 10000 -10000 10000])
 % disp('Mean F0 for males (outliers removed): ')
 % disp(mx);
 
-function [processed_data] = improver_find(feature_array, key_array, key, ) 
- processed_data = feature_array(find(key_array==key),1:N_features)
+function [processed_data] = improved_find(feature_array, key_array, key, N_features)
+    hits=key_array==key;
+    j=1;
+    processed_data=zeros(sum(hits),N_features);
+    size(hits,2)
+    for i=1:size(hits,2)
+        if hits(i)
+            processed_data(j,:)=feature_array(i,:);
+            j=j+1;
+        end
+    end
+    %processed_data = feature_array(find(key_array==key),1:N_features);
 end
