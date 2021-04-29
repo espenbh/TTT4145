@@ -8,7 +8,7 @@
 %
 % We have 12 classes, which is our vowels.
 % Each wovel has 139 samples.
-% These samples are distributed over 45 males, 48 women,
+% These samples are distributed over 45 males, 48 females,
 % 27 boys and 19 girls.
 
 %% Clear
@@ -48,7 +48,7 @@ N_bins=20;              % Bins for histograms
 N_talkers=139;          % Number of talkers
 N_vowels=length(vowel); % Number of wovels
 
-feature_mode=100;        % Decide data registration mode
+feature_mode=100;       % Decide data registration mode
 N_features= 3;          % Number of features used for classification
 
 N_training= 70;         % Number of data points per class used for training
@@ -56,6 +56,10 @@ N_test=     N_talkers-N_training;   % Number of data points per class used for t
 
 N = N_talkers*N_vowels; % Total number of data points, if preprocessing data, this will be changed
 
+% Define colors for plotting
+colors_pure_RGB=['y';'m';'c';'r';'g';'b';'k'];
+colors_mixed_RGB=[[0 0.4470 0.7410];[0.8500 0.3250 0.0980];[0.9290 0.6940 0.1250];[0.4940 0.1840 0.5560];[0.4660 0.6740 0.1880];[0.3010 0.7450 0.9330];[0.6350 0.0780 0.1840]];
+size_color_array=size(colors_pure_RGB,1);
 %% Choose features
 %Extract features based on feature mode
 
@@ -125,13 +129,13 @@ end
 % end
 
 % Update size of dataset
-N=size(features,1);
-
+% N=size(features,1);
+ 
 % Shuffle datapoints, to avoid training on men/women, and testing on
 % boys/girls
-new_index=randperm(N);
-features=features(new_index,:);
-vowel_code=vowel_code(new_index);
+% new_index=randperm(N);
+% features=features(new_index,:);
+% vowel_code=vowel_code(new_index);
 
 
 %% Separate training and test data
@@ -185,8 +189,9 @@ end
 
 means=zeros(N_vowels, N_features);
 covariances=zeros(N_vowels, N_features, N_features);
+covariances_diag=zeros(N_vowels, N_features, N_features);
 
-
+% Mean
 for n_features=1:N_features
     for n_vowels=1:N_vowels
         current_vowel_indeks=find(training_vowel_code==n_vowels);
@@ -196,14 +201,27 @@ for n_features=1:N_features
     end
 end
 
+% Covariance
 for n_vowels=1:N_vowels
     current_vowel_indeks=find(training_vowel_code==n_vowels);
     current_data=training_features(current_vowel_indeks, :);
     covariances(n_vowels, :, :) = cov(current_data);
-%   covariances(n_vowels, :, :) = cov(x)-0.01*cov(x);      % If regularization is needed
-%   disp(['Covariance for ', vowel_names(n_vowels, :)])    % Displaying covariance
-%   disp(cov(current_data)-0.01*cov(current_data))
+%   disp(['Covariance for ', vowel_names(n_vowels, :)]) % Displaying covariance
+%   disp(cov(current_data))
 end
+
+% Diagonal covariance
+for n_vowels=1:N_vowels
+    current_vowel_indeks=find(training_vowel_code==n_vowels);
+    current_data=training_features(current_vowel_indeks, :);
+    current_cov=cov(current_data);
+    for n_features=1:N_features
+        covariances_diag(n_vowels, n_features, n_features) = current_cov(n_features,n_features);
+    end
+end
+
+% Comment/uncomment this line to change covariance matrix type
+% covariances=covariances_diag;
 
 %% Calculate single Gaussian with equation (training)
 % Caluclate single Gaussian distribution
@@ -219,14 +237,15 @@ for n_vowels=1:N_vowels
 end
 
 %% Calculating GMM with fitgmdist (training)
+
 options = statset('MaxIter',1000,'TolFun',1e-6);
 GMMs=cell(N_vowels, 1);
 for n_vowels=1:N_vowels
     current_data = training_features(find(training_vowel_code==n_vowels),:);
-    GMMs{n_vowels}=fitgmdist(   current_data, 1,                ...
+    GMMs{n_vowels}=fitgmdist(   current_data, 3,                ...
                                 'RegularizationValue',0.0001,   ...
                                 'Options',options,              ...
-                                'CovarianceType','full',        ...
+                                'CovarianceType','full',        ... % Change covariance matrix type
                                 'ProbabilityTolerance',1e-8,    ...
                                 'Replicates',10);
 end
@@ -247,32 +266,13 @@ end
 %             current_all_probs(1,n_vowels_inner)=subs(current_gaussian,[x(1), x(2), x(3)],current_data);
 %         end
 %         [~, current_best_class_fit]=max(current_all_probs);
-%         confuse_matrix(current_best_class_fit, n_vowels_outer)=...
-%         confuse_matrix(current_best_class_fit, n_vowels_outer)+1;
+%         confuse_matrix(n_vowels_outer, current_best_class_fit)=...
+%         confuse_matrix(n_vowels_outer, current_best_class_fit)+1;
 %     end
 % end
 
 %% Finding confusion matrix by mvnpdf evaluation from mean and covariance at each datapoint (testing)
-% confuse_matrix=zeros(N_vowels, N_vowels);
-% for n_vowels_outer=1:N_vowels
-%     current_vowel_indeks=find(test_vowel_code==n_vowels_outer);
-%     size_test_set=size(current_vowel_indeks, 2);
-%     for i = 1:size_test_set
-%         current_indeks=current_vowel_indeks(i);
-%         current_data=test_features(current_indeks,:);
-%         current_all_probs=zeros(1, N_vowels);
-%         for n_vowels_inner=1:N_vowels
-%             sigma=reshape(covariances(n_vowels_inner,:,:), [N_features,N_features]);
-%             mu=means(n_vowels_inner, :);
-%             current_all_probs(1,n_vowels_inner)=mvnpdf(current_data, mu, sigma);
-%         end
-%         [~, current_best_class_fit]=max(current_all_probs);
-%         confuse_matrix(current_best_class_fit, n_vowels_outer)=...
-%         confuse_matrix(current_best_class_fit, n_vowels_outer)+1;
-%     end
-% end
 
-%% Finding confusion matrix by evaluating gmdistribution objects
 confuse_matrix=zeros(N_vowels, N_vowels);
 for n_vowels_outer=1:N_vowels
     current_vowel_indeks=find(test_vowel_code==n_vowels_outer);
@@ -282,15 +282,37 @@ for n_vowels_outer=1:N_vowels
         current_data=test_features(current_indeks,:);
         current_all_probs=zeros(1, N_vowels);
         for n_vowels_inner=1:N_vowels
-            current_all_probs(1,n_vowels_inner)=pdf(GMMs{n_vowels_inner}, current_data);
+            sigma=reshape(covariances(n_vowels_inner,:,:), [N_features,N_features]);
+            mu=means(n_vowels_inner, :);
+            current_all_probs(1,n_vowels_inner)=mvnpdf(current_data, mu, sigma);
         end
         [~, current_best_class_fit]=max(current_all_probs);
-        confuse_matrix(current_best_class_fit, n_vowels_outer)=...
-        confuse_matrix(current_best_class_fit, n_vowels_outer)+1;
+        confuse_matrix(n_vowels_outer, current_best_class_fit)=...
+        confuse_matrix(n_vowels_outer, current_best_class_fit)+1;
     end
 end
 
+%% Finding confusion matrix by evaluating gmdistribution objects (testing)
+
+% confuse_matrix=zeros(N_vowels, N_vowels);
+% for n_vowels_outer=1:N_vowels
+%     current_vowel_indeks=find(test_vowel_code==n_vowels_outer);
+%     size_test_set=size(current_vowel_indeks, 2);
+%     for i = 1:size_test_set
+%         current_indeks=current_vowel_indeks(i);
+%         current_data=test_features(current_indeks,:);
+%         current_all_probs=zeros(1, N_vowels);
+%         for n_vowels_inner=1:N_vowels
+%             current_all_probs(1,n_vowels_inner)=pdf(GMMs{n_vowels_inner}, current_data);
+%         end
+%         [~, current_best_class_fit]=max(current_all_probs);
+%         confuse_matrix(n_vowels_outer, current_best_class_fit)=...
+%         confuse_matrix(n_vowels_outer, current_best_class_fit)+1;
+%     end
+% end
+
 %% Finding the error rate of the confusion matrix
+
 correct=0;
 error=0;
 for i=1:N_vowels
@@ -306,50 +328,83 @@ hitrate=correct/(correct+error);
 errorrate=error/(error+correct);
 
 %% Plot
-figure(2)
-%3D scatter with 3 features and all classes
-subplot(2,2,1)
-for n_vowels=1:N_vowels
-    scatter3(features(find(n_vowels==vowel_code),1), features(find(n_vowels==vowel_code),2), features(find(n_vowels==vowel_code), 3))
-    hold on
-end
 
-%3D scatter with 3 features, class 1 and mean for class 1
-% subplot(2,2,1)
-%     vowel_1_indeks=find(vowel_code==1);
-%     scatter3(features(vowel_1_indeks,1), features(vowel_1_indeks,2), features(vowel_1_indeks, 3))
-%     hold on
-%     scatter3(means(1,1), means(1,2), means(1,3))
-%     
+% figure
+% 3D scatter with 3 features and all classes
+% for n_vowels=1:N_vowels
+%     if n_vowels <= size_color_array
+%         scatter3(   features(find(n_vowels==vowel_code),1),       ...
+%                     features(find(n_vowels==vowel_code),2),       ...
+%                     features(find(n_vowels==vowel_code),3),       ...
+%                     colors_pure_RGB(n_vowels,:),                  ...
+%                     'LineWidth', 0.75);
+%         hold on
+%     else
+%         scatter3(   features(find(n_vowels==vowel_code),1),       ...
+%                     features(find(n_vowels==vowel_code),2),       ...
+%                     features(find(n_vowels==vowel_code),3),       ...
+%                     'MarkerEdgeColor',                            ...
+%                     colors_mixed_RGB(n_vowels-size_color_array,:),...
+%                     'LineWidth', 0.75);
+%     end
+% end
+% legend('ae','ah','aw','eh','ei','er','ih','iy','oa','oo','uh','uw');
 
-% 
-% xlabel('feature_names(1, :)')
-% ylabel('feature_names(2, :)')
-% zlabel('feature_names(3, :)')
-% legend('ae','ah','aw','eh','er','ei','ih','iy','oa','oo','uh','uw')
-
-% % 3D scatter plot for first class
-% subplot(2,2,2)
-% scatter3(features(1:N_talkers,1), features(1:N_talkers,2), features(1:N_talkers, 3))
+% 3D scatter with 3 features, class 1 and mean for class 1
+% vowel_1_indeks=find(vowel_code==1);
+% scatter3(   features(vowel_1_indeks,1), features(vowel_1_indeks,2), features(vowel_1_indeks, 3), ...
+%             'LineWidth', 0.75);
 % hold on
-% scatter3(means(1,1), means(1,2), means(1,3))
-% xlabel('F1s')
-% ylabel('F2s')
-% zlabel('F3s')
+% scatter3(means(1,1), means(1,2), means(1,3), 'LineWidth', 0.75)
+% legend('ae','mean')
+% 
+% xlabel(feature_names(1, :))
+% ylabel(feature_names(2, :))
+% zlabel(feature_names(3, :))
 
 % Single Gaussian 3D plot for first class
-% subplot(2,2,3)
 % f=single_gaussian(1);
 % f_handle=@(x1, x2, x3) f;
 % fimplicit3(f, [-10000 10000 -10000 10000 -10000 10000])
-% xlabel('F1s')
-% ylabel('F2s')
-% zlabel('F3s')
+% xlabel(feature_names(1, :))
+% ylabel(feature_names(2, :))
+% zlabel(feature_names(3, :))
+% legend('Single Gaussian class model')
 
-% subplot(2,2,2)
+% GMM 3D plot for first class
 % x0=0;
 % y0=0;
 % z0=0;
 % gmPDF = @(x,y,z) arrayfun(@(x0,y0,z0) pdf(GMMs{1},[x0 y0,z0]),x,y, z);
 % fimplicit3(gmPDF,[-10000 10000 -10000 10000 -10000 10000])
+% xlabel(feature_names(1, :))
+% ylabel(feature_names(2, :))
+% zlabel(feature_names(3, :))
+% legend('Gaussian mix (k=3) class model')
 
+% Plot confuse matrix
+% f = figure;
+% set(gcf,'color','w');
+% uit = uitable(f);
+% uitable('Data',confuse_matrix,'Position',[0 0 700 350])
+
+% Plotting heatmap
+% heat_map=zeros(N_vowels,1);
+% for n_vowels=1:N_vowels
+%     heat_map(n_vowels,1)=log(norm(reshape(covariances(n_vowels,:,:),[3,3]),2));
+% end
+% clims = [10.9 13.1];
+% imagesc(heat_map,clims)
+% colorbar
+
+
+% Plotting covariance matrix
+% disp_cov=[]
+% for n_vowels=1:N_vowels
+%     disp_cov=[disp_cov;reshape(covariances_diag(n_vowels,:,:),[3,3])];
+% end
+% 
+% f = figure;
+% set(gcf,'color','w');
+% uit = uitable(f);
+% uitable('Data',disp_cov(19:36,:),'Position',[0 0 350 400]);
